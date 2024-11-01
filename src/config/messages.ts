@@ -64,5 +64,10 @@ export const strings: { [key: string]: string } = {
     TOKEN_INVALID: "Invalid token. Access denied.",
     TOKEN_MISSING: "Token is missing. Access denied.",
     TOKEN_EXPIRED: "Token has expired. Please log in again.",
-    ACCESS_DENIED_JWT: "Access denied. You do not have permission to perform this action."
+    ACCESS_DENIED_JWT: "Access denied. You do not have permission to perform this action.",
+
+    // TRading Messages    
+    CALL_BUY: "Buy Call Signal: The current price has crossed above the Top Center (TC) line, indicating a potential upward trend.",
+    MONITORING: "Monitoring Signal: The current price is positioned between the Bottom Center (BC) and Top Center (TC) lines, suggesting a period of stability. No immediate action is required.",
+    PUT_BUY: "Buy Put Signal: The current price is below the Bottom Center (BC) line, indicating a potential downward trend."
 };

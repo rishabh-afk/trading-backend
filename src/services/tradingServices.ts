@@ -1,4 +1,5 @@
 import colors from 'colors';
+import { strings } from '../config/messages';
 
 export class TradingService {
     /**
@@ -59,15 +60,17 @@ export class TradingService {
      */
     static async DetermineAction(price: number, tc: number, pivot: number, bc: number): Promise<object> {
         console.log(`Price: ${price}, TC: ${tc.toFixed(3)}, Pivot: ${pivot.toFixed(3)}, BC: ${bc.toFixed(3)}`);
-
+        let message = "";
         if (price > tc) {
-            console.log(colors.green("Buy Call: Price is above the TC line."));
+            console.log(colors.green(strings.CALL_BUY));
+            message = strings.CALL_BUY;
         } else if (price >= bc && price <= tc) {
-            console.log(colors.blue("Price is between BC and TC. Monitoring position."));
+            console.log(colors.blue(strings.MONITORING));
+            message = strings.MONITORING;
         } else if (price < bc) {
-            console.log(colors.red("Buy Put: Price is below all key points."));
+            console.log(colors.red(strings.PUT_BUY));
+            message = strings.PUT_BUY;
         }
-
-        return {};
+        return { message: message };
     }
 }

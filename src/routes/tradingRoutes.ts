@@ -3,6 +3,6 @@ import { TradingController } from '../controllers/tradingController';
 
 const router = Router();
 
-router.get('/get-details', TradingController.getTradingDetails);
+router.post('/get-action', TradingController.getTradingDetails);
 
 export default router;
