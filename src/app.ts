@@ -8,7 +8,7 @@ import { logger } from "./config/logger";
 import { corsOptions } from "./middlewares/corsMiddleware";
 import { notFoundHandler } from './middlewares/notFounHandler';
 import { globalErrorHandler } from "./middlewares/errorHandler";
-
+import "./index";
 const app = express();
 
 // Middleware
