@@ -193,11 +193,10 @@ export class TradingController {
       kc.setAccessToken(accessToken);
 
       // Fetch data using KiteConnect
-      const instruments = ["NSE:RELIANCE", "NSE:TCS"];
-      const quotes = await kc.getQuote(instruments);
+      const instruments = ["NSE:RELIANCE"];
       const ohlc = await kc.getOHLC(instruments);
 
-      res.status(200).json({ quotes, ohlc });
+      res.status(200).json({ ohlc });
     } catch (error) {
       console.error("Error fetching data:", (error as Error).message);
       res.status(500).json({ error: "Failed to fetch data." });
