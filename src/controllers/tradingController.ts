@@ -1,32 +1,63 @@
-import colors from 'colors';
-import { strings } from '../config/messages';
-import { ApiResponse } from '../utils/ApiResponse';
-import CustomError from '../middlewares/CustomError';
-import { TradingPoints } from '../config/types/points';
-import { Request, Response, NextFunction } from 'express';
-import { TradingService } from '../services/tradingServices';
+import colors from "colors";
+import dotenv from "dotenv";
+import { KiteConnect } from "kiteconnect";
+import { strings } from "../config/messages";
+import { ApiResponse } from "../utils/ApiResponse";
+import CustomError from "../middlewares/CustomError";
+import { TradingPoints } from "../config/types/points";
+import { Request, Response, NextFunction } from "express";
+import { TradingService } from "../services/tradingServices";
+
+// Load environment variables from .env file
+dotenv.config();
+
+const apiKey = process.env.API_KEY as string;
+const apiSecret = process.env.API_SECRET as string;
+
+if (!apiKey || !apiSecret) {
+  throw new Error("API_KEY and API_SECRET must be defined in .env file");
+}
+
+const kc = new KiteConnect({ api_key: apiKey });
 
 export class TradingController {
-    /**
-     * Create a new user
-     * @param {Request} req - The request object
-     * @param {Response} res - The response object
-     * @param {NextFunction} next - The next middleware function
-     */
-    static async getTradingDetails(req: Request, res: Response, next: NextFunction) {
-        try {
-            const { high, low, close, currentPrice } = req.body;
+  /**
+   * Create a new user
+   * @param {Request} req - The request object
+   * @param {Response} res - The response object
+   * @param {NextFunction} next - The next middleware function
+   */
+  static async getTradingDetails(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const { high, low, close, currentPrice } = req.body;
 
-            // Check if required fields are present
-            if (high === undefined || low === undefined || close === undefined || currentPrice === undefined) {
-                throw new CustomError("Missing required fields: high, low, close, currentPrice", 400);
-            }
+      // Check if required fields are present
+      if (
+        high === undefined ||
+        low === undefined ||
+        close === undefined ||
+        currentPrice === undefined
+      ) {
+        throw new CustomError(
+          "Missing required fields: high, low, close, currentPrice",
+          400
+        );
+      }
 
-            // Calculate the trading points
-            const points: TradingPoints = await TradingService.CalculatePoints(high, low, close);
+      // Calculate the trading points
+      const points: TradingPoints = await TradingService.CalculatePoints(
+        high,
+        low,
+        close
+      );
 
-            // Print all calculated values
-            console.log(colors.cyan(`Calculated Points:
+      // Print all calculated values
+      console.log(
+        colors.cyan(`Calculated Points:
                 Pivot: ${points.pivot}
                 BC: ${points.bc}
                 TC: ${points.tc}
@@ -37,22 +68,127 @@ export class TradingController {
                 S1: ${points.s1}
                 S2: ${points.s2}
                 S3: ${points.s3}
-                S4: ${points.s4}`));
+                S4: ${points.s4}`)
+      );
 
-            // Determine action based on the current price
-            const resp: any = await TradingService.DetermineAction(currentPrice, points.tc ?? 0, points.pivot ?? 0, points.bc ?? 0);
+      // Determine action based on the current price
+      const resp: any = await TradingService.DetermineAction(
+        currentPrice,
+        points.tc ?? 0,
+        points.pivot ?? 0,
+        points.bc ?? 0
+      );
 
-            const response = new ApiResponse(true, {}, resp?.message);
-            res.status(200).json(response);
-        } catch (error: any) {
-            if (error instanceof CustomError) {
-                const response = new ApiResponse(false, {}, error.message);
-                res.status(error.status).json(response);
-            } else {
-                // Handle unexpected errors
-                const response = new ApiResponse(false, { error: error.message }, strings.ERROR);
-                res.status(500).json(response);
-            }
-        }
+      const response = new ApiResponse(true, {}, resp?.message);
+      res.status(200).json(response);
+    } catch (error: any) {
+      if (error instanceof CustomError) {
+        const response = new ApiResponse(false, {}, error.message);
+        res.status(error.status).json(response);
+      } else {
+        // Handle unexpected errors
+        const response = new ApiResponse(
+          false,
+          { error: error.message },
+          strings.ERROR
+        );
+        res.status(500).json(response);
+      }
     }
+  }
+
+  /**
+   * Handles the generation and redirection to the Keycloak login URL.
+   * If an error occurs, it logs the error and redirects to a fallback login page.
+   *
+   * @param {Request} req - The incoming HTTP request.
+   * @param {Response} res - The HTTP response object.
+   * @param {NextFunction} next - The next middleware function in the chain.
+   */
+  static async getLoginURL(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const loginUrl = kc.getLoginURL();
+      if (!loginUrl)
+        throw new Error(
+          "Failed to generate login URL. Login URL is undefined."
+        );
+
+      return res.redirect(loginUrl);
+    } catch (error) {
+      const errorMessage = (error as Error).message;
+      return console.error(
+        "Error generating or redirecting to Login URL:",
+        errorMessage
+      );
+    }
+  }
+
+  /**
+   * Create a new user
+   * @param {Request} req - The request object
+   * @param {Response} res - The response object
+   * @param {NextFunction} next - The next middleware function
+   */
+  static async handleRedirection(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      const { type, status, request_token } = req.query;
+
+      if (!request_token || typeof request_token !== "string") {
+        console.error("Invalid or missing request token.");
+        return res
+          .status(400)
+          .json({ error: "Invalid or missing request token." });
+      }
+
+      // Step 1: Generate session
+      const session = await kc.generateSession(request_token, apiSecret);
+      if (!session || !session.access_token) {
+        console.error("Failed to generate session or missing access token.");
+        return res.status(500).json({ error: "Failed to generate session." });
+      }
+
+      // Step 2: Set access token
+      kc.setAccessToken(session.access_token);
+
+      // Step 3: Fetch user profile
+      const profile = await kc.getProfile();
+      if (!profile) {
+        console.error("Failed to fetch user profile.");
+        return res.status(500).json({ error: "Failed to fetch user profile." });
+      }
+      console.log("User Profile:", profile);
+
+      // Step 4: Fetch market quotes
+      const instruments = ["NSE:RELIANCE", "NSE:TCS"];
+      try {
+        const quotes = await kc.getQuote(instruments);
+        const ohlc = await kc.getOHLC(instruments);
+
+        console.log("OHLC Data:", ohlc);
+        console.log("Market Quotes:", quotes);
+      } catch (marketError) {
+        console.error(
+          "Error fetching market quotes:",
+          (marketError as Error).message
+        );
+        return res
+          .status(500)
+          .json({ error: "Failed to fetch market quotes." });
+      }
+
+      // Optional: Handle further response actions here
+      res.status(200).json({ message: "Success", profile });
+    } catch (error) {
+      console.error("Error handling redirection:", (error as Error).message);
+      return res.status(500).json({ error: "An unexpected error occurred." });
+    }
+  }
 }
