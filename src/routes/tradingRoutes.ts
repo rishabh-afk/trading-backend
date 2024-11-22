@@ -11,4 +11,6 @@ router.get("/redirect", TradingController.handleRedirection);
 
 router.get("/fetch-data", TradingController.fetchData);
 
+router.get("/historical-data", TradingController.HistoricalData);
+
 export default router;

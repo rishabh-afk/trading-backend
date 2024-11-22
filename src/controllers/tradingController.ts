@@ -7,6 +7,7 @@ import CustomError from "../middlewares/CustomError";
 import { TradingPoints } from "../config/types/points";
 import { Request, Response, NextFunction } from "express";
 import { TradingService } from "../services/tradingServices";
+import moment from "moment";
 
 // Load environment variables from .env file
 dotenv.config();
@@ -200,6 +201,53 @@ export class TradingController {
     } catch (error) {
       console.error("Error fetching data:", (error as Error).message);
       res.status(500).json({ error: "Failed to fetch data." });
+    }
+  }
+
+  static async HistoricalData(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      if (!accessToken) {
+        const loginUrl = kc.getLoginURL();
+        if (!loginUrl) {
+          return res
+            .status(500)
+            .json({ error: "Failed to generate login URL." });
+        }
+        return res.redirect(loginUrl);
+      }
+
+      // Set the stored access token for KiteConnect
+      kc.setAccessToken(accessToken);
+
+      // Define the instrument(s) to fetch data for
+      const instrumentToken = "738561"; // Use the appropriate instrument token for Reliance or another stock
+      const interval = "minute"; // You can change this to other intervals like "5minute", "15minute", etc.
+
+      // Get the current date and the previous day for historical data
+      const currentDate = moment().format("YYYY-MM-DD");
+      const fromDate = moment(`${currentDate} 09:15:00`).toDate(); // Start from 9:15 AM
+      const toDate = moment(`${currentDate} 15:30:00`).toDate(); // End at 3:30 PM
+
+      // Fetch the historical data
+      const historicalData = await kc.getHistoricalData(
+        instrumentToken,
+        interval,
+        fromDate,
+        toDate
+      );
+
+      // Return the historical data as a response
+      res.status(200).json({
+        success: true,
+        historicalData,
+      });
+    } catch (error) {
+      console.error("Error fetching data:", (error as Error).message);
+      res.status(500).json({ error: "Failed to fetch historical data." });
     }
   }
 }
