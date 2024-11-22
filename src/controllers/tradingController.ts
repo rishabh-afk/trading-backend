@@ -19,6 +19,7 @@ if (!apiKey || !apiSecret) {
 }
 
 const kc = new KiteConnect({ api_key: apiKey });
+let accessToken: string | null = null; // Temporary storage for the access token
 
 export class TradingController {
   /**
@@ -150,12 +151,14 @@ export class TradingController {
 
       // Step 1: Generate session
       const session = await kc.generateSession(request_token, apiSecret);
+
       if (!session || !session.access_token) {
         console.error("Failed to generate session or missing access token.");
         return res.status(500).json({ error: "Failed to generate session." });
       }
 
       // Step 2: Set access token
+      accessToken = session.access_token; // Save access token in a variable
       kc.setAccessToken(session.access_token);
 
       // Step 3: Fetch user profile
@@ -164,31 +167,40 @@ export class TradingController {
         console.error("Failed to fetch user profile.");
         return res.status(500).json({ error: "Failed to fetch user profile." });
       }
-      console.log("User Profile:", profile);
-
-      // Step 4: Fetch market quotes
-      const instruments = ["NSE:RELIANCE", "NSE:TCS"];
-      try {
-        const quotes = await kc.getQuote(instruments);
-        const ohlc = await kc.getOHLC(instruments);
-
-        console.log("OHLC Data:", ohlc);
-        console.log("Market Quotes:", quotes);
-      } catch (marketError) {
-        console.error(
-          "Error fetching market quotes:",
-          (marketError as Error).message
-        );
-        return res
-          .status(500)
-          .json({ error: "Failed to fetch market quotes." });
-      }
-
-      // Optional: Handle further response actions here
-      res.status(200).json({ message: "Success", profile });
+      return res.status(200).json({ message: "Success", profile });
     } catch (error) {
       console.error("Error handling redirection:", (error as Error).message);
       return res.status(500).json({ error: "An unexpected error occurred." });
+    }
+  }
+  static async fetchData(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<any> {
+    try {
+      if (!accessToken) {
+        const loginUrl = kc.getLoginURL();
+        if (!loginUrl) {
+          return res
+            .status(500)
+            .json({ error: "Failed to generate login URL." });
+        }
+        return res.redirect(loginUrl);
+      }
+
+      // Set the stored access token for KiteConnect
+      kc.setAccessToken(accessToken);
+
+      // Fetch data using KiteConnect
+      const instruments = ["NSE:RELIANCE", "NSE:TCS"];
+      const quotes = await kc.getQuote(instruments);
+      const ohlc = await kc.getOHLC(instruments);
+
+      res.status(200).json({ quotes, ohlc });
+    } catch (error) {
+      console.error("Error fetching data:", (error as Error).message);
+      res.status(500).json({ error: "Failed to fetch data." });
     }
   }
 }

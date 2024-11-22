@@ -9,4 +9,6 @@ router.get("/login", TradingController.getLoginURL);
 
 router.get("/redirect", TradingController.handleRedirection);
 
+router.get("/fetch-data", TradingController.fetchData);
+
 export default router;
